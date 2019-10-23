@@ -67,29 +67,32 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
 
     volatile boolean finished = false;
 
-    // 对于非事务请求，直接调用nextProcessor， 对于事务请求，会阻塞，直到投票成功
+    // 这个线程做了很多事情，来保证效率和功能，比如这个线程可以在保证事务性请求等待ack的同时，也可以去处理非事务性请求
     @Override
     public void run() {
         try {
             Request nextPending = null;            
             while (!finished) {
+                // toProcess中的要么是非事务性请求，要么是已经可以被提交的事务性请求
                 int len = toProcess.size();
                 for (int i = 0; i < len; i++) {
-                    // 非事务请求，或已经提交的事务请求，交给下一个处理器处理
                     nextProcessor.processRequest(toProcess.get(i));
                 }
                 toProcess.clear();
                 synchronized (this) {
+                    // queuedRequests中存放的是已经发起了提议，正在等待ack的请求
                     if ((queuedRequests.size() == 0 || nextPending != null)
                             && committedRequests.size() == 0) {
-                        // 一旦有事务请求，需要等待投票，这里还有一个功能就是，保证了请求的有序性
+                        // ProposalRequestProcessor会负责往queuedRequests中添加请求，然后唤醒
                         wait();
                         continue;
                     }
                     // First check and see if the commit came in for the pending
                     // request
+                    // nextPending代表正在等待ack的请求，如果发现有正常等待ack，并且committedRequests中也有数据了，那么就先检查，然后把nextPending添加到toProcess中
                     if ((queuedRequests.size() == 0 || nextPending != null)
                             && committedRequests.size() > 0) {
+                        // committedRequests中存放的是可以被提交的请求
                         Request r = committedRequests.remove();
                         /*
                          * We match with nextPending so that we can move to the
@@ -123,6 +126,7 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
 
                 synchronized (this) {
                     // Process the next requests in the queuedRequests
+                    // 从queuedRequests中取request数据，看是不是事务性请求，如果是则设置为nextPending，如果不是则直接添加到toProcess
                     while (nextPending == null && queuedRequests.size() > 0) {
                         Request request = queuedRequests.remove();
                         switch (request.type) {

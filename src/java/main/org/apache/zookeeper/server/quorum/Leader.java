@@ -598,6 +598,7 @@ public class Leader {
             // The proposal has already been committed
             return;
         }
+        // 一个事务对应一个提议
         Proposal p = outstandingProposals.get(zxid);
         if (p == null) {
             LOG.warn("Trying to commit future proposal: zxid 0x{} from {}",
@@ -610,7 +611,9 @@ public class Leader {
             LOG.debug("Count for zxid: 0x{} is {}",
                     Long.toHexString(zxid), p.ackSet.size());
         }
-        if (self.getQuorumVerifier().containsQuorum(p.ackSet)){             
+        // 每接收到一个ack就会验证当前提议所接收到的ack数量是否超过一半
+        if (self.getQuorumVerifier().containsQuorum(p.ackSet)){
+            // zk中事务顺序严格自增
             if (zxid != lastCommitted+1) {
                 LOG.warn("Commiting zxid 0x{} from {} not first!",
                         Long.toHexString(zxid), followerAddr);
@@ -626,7 +629,7 @@ public class Leader {
             }
             commit(zxid); // Follower提交
             inform(p); // Observer同步
-            zk.commitProcessor.commit(p.request);
+            zk.commitProcessor.commit(p.request); // Leader本地提交
             if(pendingSyncs.containsKey(zxid)){
                 for(LearnerSyncRequest r: pendingSyncs.remove(zxid)) {
                     sendSync(r);

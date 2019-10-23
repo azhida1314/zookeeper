@@ -74,6 +74,8 @@ public class QuorumPeerMain {
      * To start the replicated server specify the configuration file name on
      * the command line.
      * @param args path to the configfile
+     *
+     *             总入口
      */
     public static void main(String[] args) {
         QuorumPeerMain main = new QuorumPeerMain();
@@ -96,6 +98,10 @@ public class QuorumPeerMain {
         System.exit(0);
     }
 
+    /**
+     * 初始化和运行，
+     * @param args 配置文件路径
+     */
     protected void initializeAndRun(String[] args)
         throws ConfigException, IOException
     {
@@ -105,6 +111,7 @@ public class QuorumPeerMain {
         }
 
         // Start and schedule the the purge task
+        // 清楚快照和日志文件
         DatadirCleanupManager purgeMgr = new DatadirCleanupManager(config
                 .getDataDir(), config.getDataLogDir(), config
                 .getSnapRetainCount(), config.getPurgeInterval());
@@ -124,6 +131,7 @@ public class QuorumPeerMain {
 
     public void runFromConfig(QuorumPeerConfig config) throws IOException {
       try {
+          // 注册log4j的MBean
           ManagedUtil.registerLog4jMBeans();
       } catch (JMException e) {
           LOG.warn("Unable to register log4j JMX control", e);
@@ -131,11 +139,12 @@ public class QuorumPeerMain {
   
       LOG.info("Starting quorum peer");
       try {
-          // 默认NIOServerCnxnFactory
+          // ServerCnxn表示一个接收到的客户端连接， ServerCnxnFactory表示连接工厂
           ServerCnxnFactory cnxnFactory = ServerCnxnFactory.createFactory();
           cnxnFactory.configure(config.getClientPortAddress(),
                                 config.getMaxClientCnxns());
 
+          // QuorumPeer表示集群中的本服务器
           quorumPeer = getQuorumPeer();
 
           quorumPeer.setQuorumPeers(config.getServers());

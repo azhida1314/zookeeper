@@ -71,11 +71,11 @@ public class ProposalRequestProcessor implements RequestProcessor {
         if(request instanceof LearnerSyncRequest){
             zks.getLeader().processSync((LearnerSyncRequest)request);
         } else {
-                nextProcessor.processRequest(request); // 先交给下一个nextProcessor
+                nextProcessor.processRequest(request); // 先交给下一个nextProcessor- CommitProcessor， 这一步知识把request加到queuedRequests队列中
             if (request.hdr != null) { // 如果是事务请求，Leader发出提议,集群进行投票
                 // We need to sync and get consensus on any transactions
                 try {
-                    zks.getLeader().propose(request);
+                    zks.getLeader().propose(request); // 2PC中的预提交
                 } catch (XidRolloverException e) {
                     throw new RequestProcessorException(e.getMessage(), e);
                 }
